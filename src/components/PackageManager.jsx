@@ -13,7 +13,7 @@ function getStatus(expiryDate) {
 function formatMoney(n) { return (n || 0).toLocaleString('vi-VN') + ' ₫' }
 function formatDate(s) { return s ? new Date(s).toLocaleDateString('vi-VN') : '—' }
 
-const EMPTY_FORM = { name: '', cost: '', purchaseDate: '', expiryDate: '', notes: '' }
+const EMPTY_FORM = { name: '', ownerEmail: '', cost: '', purchaseDate: '', expiryDate: '', notes: '' }
 
 function StatusBadge({ expiryDate }) {
   const s = getStatus(expiryDate)
@@ -39,7 +39,7 @@ export default function PackageManager({ packages, setPackages }) {
 
   function openEdit(pkg) {
     setEditId(pkg.id)
-    setForm({ name: pkg.name, cost: pkg.cost, purchaseDate: pkg.purchaseDate, expiryDate: pkg.expiryDate, notes: pkg.notes || '' })
+    setForm({ name: pkg.name, ownerEmail: pkg.ownerEmail || '', cost: pkg.cost, purchaseDate: pkg.purchaseDate, expiryDate: pkg.expiryDate, notes: pkg.notes || '' })
     setModalOpen(true)
   }
 
@@ -95,6 +95,7 @@ export default function PackageManager({ packages, setPackages }) {
               <tr className="bg-gray-50 text-gray-500 uppercase text-xs border-b border-gray-100">
                 <th className="px-4 py-3 text-left">STT</th>
                 <th className="px-4 py-3 text-left">Tên Gói</th>
+                <th className="px-4 py-3 text-left">Email Chủ</th>
                 <th className="px-4 py-3 text-right">Chi Phí</th>
                 <th className="px-4 py-3 text-center">Ngày Mua</th>
                 <th className="px-4 py-3 text-center">Ngày Hết Hạn</th>
@@ -111,6 +112,7 @@ export default function PackageManager({ packages, setPackages }) {
                   <tr key={pkg.id} className={`border-b border-gray-50 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
                     <td className="px-4 py-3 text-gray-400">{i + 1}</td>
                     <td className="px-4 py-3 font-medium text-gray-800">{pkg.name}</td>
+                    <td className="px-4 py-3 text-gray-500 text-xs">{pkg.ownerEmail || '—'}</td>
                     <td className="px-4 py-3 text-right text-red-600 font-semibold">{formatMoney(pkg.cost)}</td>
                     <td className="px-4 py-3 text-center text-gray-600">{formatDate(pkg.purchaseDate)}</td>
                     <td className="px-4 py-3 text-center text-gray-600">{formatDate(pkg.expiryDate)}</td>
@@ -151,6 +153,16 @@ export default function PackageManager({ packages, setPackages }) {
               onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
               placeholder="VD: Gemini AI Pro - T7/2026"
               required
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Email tài khoản chủ</label>
+            <input
+              type="email"
+              value={form.ownerEmail}
+              onChange={e => setForm(f => ({ ...f, ownerEmail: e.target.value }))}
+              placeholder="owner@gmail.com"
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
