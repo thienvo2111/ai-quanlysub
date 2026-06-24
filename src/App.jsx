@@ -140,7 +140,7 @@ export default function App() {
       ) : (
         <main className="max-w-7xl mx-auto">
           {activeTab === 'dashboard' && <Dashboard packages={packages} members={members} />}
-          {activeTab === 'packages' && <PackageManager packages={packages} setPackages={setPackages} />}
+          {activeTab === 'packages' && <PackageManager packages={packages} setPackages={setPackages} members={members} />}
           {activeTab === 'members' && <MemberManager packages={packages} members={members} setMembers={setMembers} />}
         </main>
       )}

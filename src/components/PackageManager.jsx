@@ -26,7 +26,11 @@ function StatusBadge({ expiryDate }) {
   return <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${map[s]}`}>{label[s]}</span>
 }
 
-export default function PackageManager({ packages, setPackages }) {
+export default function PackageManager({ packages, setPackages, members = [] }) {
+  function getMemberCount(pkgId) {
+    // active members (not expired)
+    return members.filter(m => getDaysLeft(m.expiryDate) >= 0).length
+  }
   const [modalOpen, setModalOpen] = useState(false)
   const [editId, setEditId] = useState(null)
   const [form, setForm] = useState(EMPTY_FORM)
@@ -100,6 +104,7 @@ export default function PackageManager({ packages, setPackages }) {
                 <th className="px-4 py-3 text-center">Ngày Mua</th>
                 <th className="px-4 py-3 text-center">Ngày Hết Hạn</th>
                 <th className="px-4 py-3 text-center">Còn Lại</th>
+                <th className="px-4 py-3 text-center">Thành Viên</th>
                 <th className="px-4 py-3 text-center">Trạng Thái</th>
                 <th className="px-4 py-3 text-center">Ghi Chú</th>
                 <th className="px-4 py-3 text-center">Hành Động</th>
@@ -119,6 +124,11 @@ export default function PackageManager({ packages, setPackages }) {
                     <td className="px-4 py-3 text-center">
                       <span className={`font-medium ${days < 0 ? 'text-red-500' : days <= 7 ? 'text-yellow-600' : 'text-gray-600'}`}>
                         {days < 0 ? `Quá hạn ${Math.abs(days)} ngày` : `${days} ngày`}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <span className="inline-flex items-center gap-1 bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full text-xs font-semibold">
+                        👥 {getMemberCount(pkg.id)}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-center"><StatusBadge expiryDate={pkg.expiryDate} /></td>
