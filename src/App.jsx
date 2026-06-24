@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import Dashboard from './components/Dashboard'
 import PackageManager from './components/PackageManager'
 import MemberManager from './components/MemberManager'
+import Login from './components/Login'
 import { api } from './api'
 
 const SAMPLE_PACKAGES = [
@@ -35,12 +36,15 @@ function useLocalStorage(key, initialValue) {
 }
 
 export default function App() {
+  const [authed, setAuthed] = useState(() => sessionStorage.getItem('qlsub_auth') === '1')
   const [packages, setPackagesState] = useLocalStorage('qlsub_packages', SAMPLE_PACKAGES)
   const [members, setMembersState] = useLocalStorage('qlsub_members', SAMPLE_MEMBERS)
   const [loading, setLoading] = useState(HAS_API)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
   const [activeTab, setActiveTab] = useState('dashboard')
+
+  if (!authed) return <Login onLogin={() => setAuthed(true)} />
 
   // Load from Sheets on mount
   useEffect(() => {
@@ -101,6 +105,10 @@ export default function App() {
                   Chế độ cục bộ
                 </span>
               )}
+              <button
+                onClick={() => { sessionStorage.removeItem('qlsub_auth'); setAuthed(false) }}
+                className="text-blue-200 hover:text-white text-xs border border-blue-400 hover:border-white px-2.5 py-1 rounded-lg transition-colors"
+              >Đăng xuất</button>
               <div className="text-blue-200 text-xs text-right hidden sm:block">
                 <p>{packages.length} gói · {members.length} thành viên</p>
               </div>
