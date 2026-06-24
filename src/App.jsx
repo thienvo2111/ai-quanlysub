@@ -39,16 +39,14 @@ export default function App() {
   const [authed, setAuthed] = useState(() => sessionStorage.getItem('qlsub_auth') === '1')
   const [packages, setPackagesState] = useLocalStorage('qlsub_packages', SAMPLE_PACKAGES)
   const [members, setMembersState] = useLocalStorage('qlsub_members', SAMPLE_MEMBERS)
-  const [loading, setLoading] = useState(HAS_API)
+  const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
   const [activeTab, setActiveTab] = useState('dashboard')
 
-  if (!authed) return <Login onLogin={() => setAuthed(true)} />
-
-  // Load from Sheets on mount
+  // Tất cả hooks phải đặt trước conditional return — quy tắc React
   useEffect(() => {
-    if (!HAS_API) return
+    if (!authed || !HAS_API) return
     setLoading(true)
     Promise.all([api.getPackages(), api.getMembers()])
       .then(([pkgs, mems]) => {
@@ -58,7 +56,7 @@ export default function App() {
       })
       .catch(() => setError('Không thể kết nối Google Sheets. Đang dùng dữ liệu cục bộ.'))
       .finally(() => setLoading(false))
-  }, [])
+  }, [authed])
 
   const setPackages = useCallback(async (updater) => {
     const next = typeof updater === 'function' ? updater(packages) : updater
@@ -80,9 +78,11 @@ export default function App() {
     finally { setSaving(false) }
   }, [members])
 
+  // Conditional return SAU tất cả hooks
+  if (!authed) return <Login onLogin={() => setAuthed(true)} />
+
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
       <header className="bg-blue-600 shadow-md">
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex items-center justify-between py-4">
@@ -114,7 +114,6 @@ export default function App() {
               </div>
             </div>
           </div>
-          {/* Tabs */}
           <div className="flex gap-1 pb-3">
             {TABS.map(t => (
               <button
@@ -131,7 +130,6 @@ export default function App() {
         </div>
       </header>
 
-      {/* Error banner */}
       {error && (
         <div className="bg-yellow-50 border-b border-yellow-200 px-4 py-2 flex justify-between items-center">
           <p className="text-yellow-700 text-sm">⚠️ {error}</p>
@@ -139,7 +137,6 @@ export default function App() {
         </div>
       )}
 
-      {/* Loading */}
       {loading ? (
         <div className="flex flex-col items-center justify-center py-32 text-gray-400">
           <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mb-4"></div>
