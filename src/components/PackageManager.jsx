@@ -13,6 +13,21 @@ function getStatus(expiryDate) {
 function formatMoney(n) { return (n || 0).toLocaleString('vi-VN') + ' ₫' }
 function formatDate(s) { return s ? new Date(s).toLocaleDateString('vi-VN') : '—' }
 
+// Chuẩn hóa mọi định dạng ngày về YYYY-MM-DD cho <input type="date">
+function toInputDate(str) {
+  if (!str) return ''
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str
+  // Xử lý DD/MM/YYYY (định dạng Việt Nam hoặc từ Google Sheets)
+  const parts = str.split('/')
+  if (parts.length === 3) {
+    const [dd, mm, yyyy] = parts
+    return `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`
+  }
+  // Fallback: parse rồi convert
+  const d = new Date(str)
+  return isNaN(d) ? '' : d.toISOString().split('T')[0]
+}
+
 const EMPTY_FORM = { name: '', ownerEmail: '', cost: '', purchaseDate: '', expiryDate: '', notes: '' }
 
 function StatusBadge({ expiryDate }) {
@@ -43,7 +58,14 @@ export default function PackageManager({ packages, setPackages, members = [] }) 
 
   function openEdit(pkg) {
     setEditId(pkg.id)
-    setForm({ name: pkg.name, ownerEmail: pkg.ownerEmail || '', cost: pkg.cost, purchaseDate: pkg.purchaseDate, expiryDate: pkg.expiryDate, notes: pkg.notes || '' })
+    setForm({
+      name: pkg.name,
+      ownerEmail: pkg.ownerEmail || '',
+      cost: pkg.cost || '',
+      purchaseDate: toInputDate(pkg.purchaseDate),
+      expiryDate: toInputDate(pkg.expiryDate),
+      notes: pkg.notes || '',
+    })
     setModalOpen(true)
   }
 

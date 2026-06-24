@@ -1,6 +1,18 @@
 import React, { useState, useEffect } from 'react'
 import Modal from './Modal'
 
+function toInputDate(str) {
+  if (!str) return ''
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str
+  const parts = str.split('/')
+  if (parts.length === 3) {
+    const [dd, mm, yyyy] = parts
+    return `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`
+  }
+  const d = new Date(str)
+  return isNaN(d) ? '' : d.toISOString().split('T')[0]
+}
+
 function calcExpiryDate(startDate, duration) {
   const d = new Date(startDate)
   if (duration === '1m') d.setMonth(d.getMonth() + 1)
@@ -82,7 +94,7 @@ export default function MemberManager({ packages, members, setMembers }) {
     setEditId(m.id)
     // email/phone intentionally left blank — user fills only if they want to update
     const months = DURATION_MONTHS[m.duration] || 1
-    setForm({ name: m.name, email: '', phone: '', paymentAmount: m.paymentAmount, duration: m.duration, startDate: m.startDate })
+    setForm({ name: m.name, email: '', phone: '', paymentAmount: m.paymentAmount, duration: m.duration, startDate: toInputDate(m.startDate) })
     setModalOpen(true)
   }
 
