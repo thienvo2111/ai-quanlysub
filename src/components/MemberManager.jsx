@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import Modal from './Modal'
 
 function calcExpiryDate(startDate, duration) {
@@ -22,17 +22,32 @@ function formatMoney(n) { return (n || 0).toLocaleString('vi-VN') + ' ₫' }
 function formatDate(s) { return s ? new Date(s).toLocaleDateString('vi-VN') : '—' }
 
 const DURATION_LABELS = { '1m': '1 tháng', '3m': '3 tháng', '6m': '6 tháng', '1y': '1 năm' }
-const EMPTY_FORM = { name: '', email: '', phone: '', paymentAmount: '', duration: '1m', startDate: new Date().toISOString().split('T')[0] }
-const EMPTY_RENEW = { paymentAmount: '', duration: '1m', startDate: new Date().toISOString().split('T')[0] }
+const DURATION_MONTHS = { '1m': 1, '3m': 3, '6m': 6, '1y': 12 }
+const today = new Date().toISOString().split('T')[0]
+const EMPTY_FORM = { name: '', email: '', phone: '', paymentAmount: '', duration: '1m', startDate: today }
+const EMPTY_RENEW = { paymentAmount: '', duration: '1m', startDate: today }
 
 function StatusBadge({ expiryDate }) {
   const s = getStatus(expiryDate)
-  const map = { active: 'bg-green-100 text-green-700', expiring: 'bg-yellow-100 text-yellow-700', expired: 'bg-red-100 text-red-700' }
+  const cls = { active: 'bg-green-100 text-green-700', expiring: 'bg-yellow-100 text-yellow-700', expired: 'bg-red-100 text-red-700' }
   const label = { active: 'Active', expiring: 'Sắp hết', expired: 'Hết hạn' }
-  return <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${map[s]}`}>{label[s]}</span>
+  return <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${cls[s]}`}>{label[s]}</span>
+}
+
+function usePricePerMonth() {
+  const [price, setPrice] = useState(() => {
+    const saved = localStorage.getItem('qlsub_price_per_month')
+    return saved ? Number(saved) : 175000
+  })
+  useEffect(() => { localStorage.setItem('qlsub_price_per_month', price) }, [price])
+  return [price, setPrice]
 }
 
 export default function MemberManager({ packages, members, setMembers }) {
+  const [pricePerMonth, setPricePerMonth] = usePricePerMonth()
+  const [editingPrice, setEditingPrice] = useState(false)
+  const [priceInput, setPriceInput] = useState(pricePerMonth)
+
   const [modalOpen, setModalOpen] = useState(false)
   const [renewOpen, setRenewOpen] = useState(false)
   const [editId, setEditId] = useState(null)
@@ -41,25 +56,40 @@ export default function MemberManager({ packages, members, setMembers }) {
   const [renewForm, setRenewForm] = useState(EMPTY_RENEW)
   const [filter, setFilter] = useState('all')
 
-  const today = new Date().toISOString().split('T')[0]
   const derivedExpiry = calcExpiryDate(form.startDate || today, form.duration)
   const renewExpiry = calcExpiryDate(renewForm.startDate || today, renewForm.duration)
 
+  // Auto-calculate amount when duration changes in add/edit form
+  useEffect(() => {
+    const months = DURATION_MONTHS[form.duration] || 1
+    setForm(f => ({ ...f, paymentAmount: pricePerMonth * months }))
+  }, [form.duration, pricePerMonth])
+
+  // Auto-calculate amount when duration changes in renew form
+  useEffect(() => {
+    const months = DURATION_MONTHS[renewForm.duration] || 1
+    setRenewForm(f => ({ ...f, paymentAmount: pricePerMonth * months }))
+  }, [renewForm.duration, pricePerMonth])
+
   function openAdd() {
     setEditId(null)
-    setForm(EMPTY_FORM)
+    const months = DURATION_MONTHS['1m']
+    setForm({ ...EMPTY_FORM, paymentAmount: pricePerMonth * months })
     setModalOpen(true)
   }
 
   function openEdit(m) {
     setEditId(m.id)
-    setForm({ name: m.name, email: m.email || '', phone: m.phone || '', paymentAmount: m.paymentAmount, duration: m.duration, startDate: m.startDate })
+    // email/phone intentionally left blank — user fills only if they want to update
+    const months = DURATION_MONTHS[m.duration] || 1
+    setForm({ name: m.name, email: '', phone: '', paymentAmount: m.paymentAmount, duration: m.duration, startDate: m.startDate })
     setModalOpen(true)
   }
 
   function openRenew(m) {
     setRenewTarget(m)
-    setRenewForm({ paymentAmount: '', duration: '1m', startDate: today })
+    const months = DURATION_MONTHS['1m']
+    setRenewForm({ paymentAmount: pricePerMonth * months, duration: '1m', startDate: today })
     setRenewOpen(true)
   }
 
@@ -71,11 +101,31 @@ export default function MemberManager({ packages, members, setMembers }) {
     if (!form.name || !form.paymentAmount || !form.startDate) return
     const expiryDate = calcExpiryDate(form.startDate, form.duration)
     if (editId) {
-      setMembers(prev => prev.map(m => m.id === editId
-        ? { ...m, ...form, paymentAmount: Number(form.paymentAmount), expiryDate }
-        : m))
+      setMembers(prev => prev.map(m => {
+        if (m.id !== editId) return m
+        return {
+          ...m,
+          name: form.name,
+          // only update email/phone if user typed something; otherwise keep existing
+          email: form.email || m.email || '',
+          phone: form.phone || m.phone || '',
+          paymentAmount: Number(form.paymentAmount),
+          duration: form.duration,
+          startDate: form.startDate,
+          expiryDate,
+        }
+      }))
     } else {
-      setMembers(prev => [...prev, { id: Date.now().toString(), ...form, paymentAmount: Number(form.paymentAmount), expiryDate }])
+      setMembers(prev => [...prev, {
+        id: Date.now().toString(),
+        name: form.name,
+        email: form.email,
+        phone: form.phone,
+        paymentAmount: Number(form.paymentAmount),
+        duration: form.duration,
+        startDate: form.startDate,
+        expiryDate,
+      }])
     }
     closeModal()
   }
@@ -96,6 +146,12 @@ export default function MemberManager({ packages, members, setMembers }) {
     }
   }
 
+  function savePrice() {
+    const v = Number(priceInput)
+    if (v > 0) setPricePerMonth(v)
+    setEditingPrice(false)
+  }
+
   const filtered = filter === 'all' ? members : members.filter(m => getStatus(m.expiryDate) === filter)
   const totalRevenue = members.reduce((s, m) => s + (m.paymentAmount || 0), 0)
 
@@ -108,7 +164,8 @@ export default function MemberManager({ packages, members, setMembers }) {
 
   return (
     <div className="p-6">
-      <div className="flex flex-wrap justify-between items-center gap-3 mb-6">
+      {/* Header */}
+      <div className="flex flex-wrap justify-between items-start gap-3 mb-5">
         <div>
           <h2 className="text-xl font-bold text-gray-800">Quản Lý Thành Viên</h2>
           <p className="text-sm text-gray-500 mt-0.5">Tổng doanh thu: <span className="text-green-600 font-semibold">{formatMoney(totalRevenue)}</span></p>
@@ -119,6 +176,36 @@ export default function MemberManager({ packages, members, setMembers }) {
         >+ Thêm Thành Viên</button>
       </div>
 
+      {/* Price config */}
+      <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 mb-5 flex items-center gap-3 flex-wrap">
+        <span className="text-sm text-blue-700 font-medium">Giá gốc / tháng:</span>
+        {editingPrice ? (
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              value={priceInput}
+              onChange={e => setPriceInput(e.target.value)}
+              className="border border-blue-300 rounded-lg px-3 py-1 text-sm w-36 focus:outline-none focus:ring-2 focus:ring-blue-400"
+              onKeyDown={e => { if (e.key === 'Enter') savePrice(); if (e.key === 'Escape') setEditingPrice(false) }}
+              autoFocus
+            />
+            <button onClick={savePrice} className="bg-blue-600 text-white px-3 py-1 rounded-lg text-xs font-medium hover:bg-blue-700">Lưu</button>
+            <button onClick={() => setEditingPrice(false)} className="text-gray-500 hover:text-gray-700 text-xs">Hủy</button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <span className="text-blue-800 font-bold">{formatMoney(pricePerMonth)}</span>
+            <button
+              onClick={() => { setPriceInput(pricePerMonth); setEditingPrice(true) }}
+              className="text-blue-500 hover:text-blue-700 text-xs underline"
+            >Chỉnh sửa</button>
+          </div>
+        )}
+        <span className="text-xs text-blue-400 ml-auto hidden sm:block">
+          3 tháng = {formatMoney(pricePerMonth * 3)} · 6 tháng = {formatMoney(pricePerMonth * 6)} · 1 năm = {formatMoney(pricePerMonth * 12)}
+        </span>
+      </div>
+
       {/* Filter */}
       <div className="flex gap-2 mb-4 flex-wrap">
         {filterBtns.map(b => (
@@ -126,10 +213,11 @@ export default function MemberManager({ packages, members, setMembers }) {
             key={b.key}
             onClick={() => setFilter(b.key)}
             className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${filter === b.key ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
-          >{b.label} {b.key === 'all' ? `(${members.length})` : `(${members.filter(m => getStatus(m.expiryDate) === b.key).length})`}</button>
+          >{b.label} ({b.key === 'all' ? members.length : members.filter(m => getStatus(m.expiryDate) === b.key).length})</button>
         ))}
       </div>
 
+      {/* Table */}
       {filtered.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
           <p className="text-4xl mb-3">👥</p>
@@ -159,7 +247,7 @@ export default function MemberManager({ packages, members, setMembers }) {
                   <tr key={m.id} className={`border-b border-gray-50 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
                     <td className="px-4 py-3 text-gray-400">{i + 1}</td>
                     <td className="px-4 py-3 font-medium text-gray-800">{m.name}</td>
-                    <td className="px-4 py-3 text-gray-500">{m.email || m.phone || '—'}</td>
+                    <td className="px-4 py-3 text-gray-500 text-xs">{m.email || m.phone || '—'}</td>
                     <td className="px-4 py-3 text-right text-green-600 font-semibold">{formatMoney(m.paymentAmount)}</td>
                     <td className="px-4 py-3 text-center text-gray-600">{DURATION_LABELS[m.duration] || m.duration}</td>
                     <td className="px-4 py-3 text-center text-gray-600">{formatDate(m.startDate)}</td>
@@ -198,21 +286,15 @@ export default function MemberManager({ packages, members, setMembers }) {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
               <input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-                placeholder="example@gmail.com"
+                placeholder={editId ? '(giữ nguyên nếu bỏ trống)' : 'example@gmail.com'}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Số điện thoại</label>
               <input type="text" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
-                placeholder="0901234567"
+                placeholder={editId ? '(giữ nguyên nếu bỏ trống)' : '0901234567'}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Số tiền thanh toán (₫) <span className="text-red-500">*</span></label>
-            <input type="number" value={form.paymentAmount} onChange={e => setForm(f => ({ ...f, paymentAmount: e.target.value }))}
-              placeholder="120000" required min="0"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -230,6 +312,16 @@ export default function MemberManager({ packages, members, setMembers }) {
               <input type="date" value={form.startDate} onChange={e => setForm(f => ({ ...f, startDate: e.target.value }))}
                 required className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Số tiền thanh toán (₫) <span className="text-red-500">*</span>
+              <span className="text-gray-400 font-normal ml-2 text-xs">tự tính · có thể điều chỉnh</span>
+            </label>
+            <input type="number" value={form.paymentAmount}
+              onChange={e => setForm(f => ({ ...f, paymentAmount: e.target.value }))}
+              required min="0"
+              className="w-full border border-blue-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-blue-50" />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Ngày hết hạn (tự tính)</label>
@@ -254,12 +346,6 @@ export default function MemberManager({ packages, members, setMembers }) {
           </div>
         )}
         <form onSubmit={handleRenew} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Số tiền gia hạn (₫) <span className="text-red-500">*</span></label>
-            <input type="number" value={renewForm.paymentAmount} onChange={e => setRenewForm(f => ({ ...f, paymentAmount: e.target.value }))}
-              placeholder="120000" required min="0"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
-          </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Thời hạn mới <span className="text-red-500">*</span></label>
@@ -276,6 +362,16 @@ export default function MemberManager({ packages, members, setMembers }) {
               <input type="date" value={renewForm.startDate} onChange={e => setRenewForm(f => ({ ...f, startDate: e.target.value }))}
                 required className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
             </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Số tiền gia hạn (₫) <span className="text-red-500">*</span>
+              <span className="text-gray-400 font-normal ml-2 text-xs">tự tính · có thể điều chỉnh</span>
+            </label>
+            <input type="number" value={renewForm.paymentAmount}
+              onChange={e => setRenewForm(f => ({ ...f, paymentAmount: e.target.value }))}
+              required min="0"
+              className="w-full border border-green-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-green-50" />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Ngày hết hạn mới (tự tính)</label>
