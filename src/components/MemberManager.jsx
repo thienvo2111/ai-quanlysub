@@ -57,7 +57,7 @@ function formatDate(s) { return s ? new Date(s).toLocaleDateString('vi-VN') : '�
 
 const DURATION_MONTHS = { '1m': 1, '3m': 3, '6m': 6, '1y': 12 }
 const today = new Date().toISOString().split('T')[0]
-const EMPTY_FORM = { name: '', email: '', phone: '', paymentAmount: '', duration: '1m', customMonths: 2, startDate: today }
+const EMPTY_FORM = { name: '', email: '', phone: '', paymentAmount: '', duration: '1m', customMonths: 2, startDate: today, packageId: '' }
 const EMPTY_RENEW = { paymentAmount: '', duration: '1m', customMonths: 2, startDate: today }
 
 function StatusBadge({ expiryDate }) {
@@ -144,7 +144,7 @@ export default function MemberManager({ packages, members, setMembers }) {
   function openEdit(m) {
     setEditId(m.id)
     const { duration, customMonths } = parseDuration(m.duration)
-    setForm({ name: m.name, email: '', phone: '', paymentAmount: m.paymentAmount, duration, customMonths, startDate: toInputDate(m.startDate) })
+    setForm({ name: m.name, email: '', phone: '', paymentAmount: m.paymentAmount, duration, customMonths, startDate: toInputDate(m.startDate), packageId: m.packageId || '' })
     setModalOpen(true)
   }
 
@@ -174,6 +174,7 @@ export default function MemberManager({ packages, members, setMembers }) {
           duration: dur,
           startDate: form.startDate,
           expiryDate,
+          packageId: form.packageId || m.packageId || '',
         }
       }))
     } else {
@@ -186,6 +187,7 @@ export default function MemberManager({ packages, members, setMembers }) {
         duration: dur,
         startDate: form.startDate,
         expiryDate,
+        packageId: form.packageId || '',
       }])
     }
     closeModal()
@@ -293,6 +295,7 @@ export default function MemberManager({ packages, members, setMembers }) {
                 <th className="px-4 py-3 text-left">STT</th>
                 <th className="px-4 py-3 text-left">Tên</th>
                 <th className="px-4 py-3 text-left">Email / SĐT</th>
+                <th className="px-4 py-3 text-left">Gói Family</th>
                 <th className="px-4 py-3 text-right">Số Tiền</th>
                 <th className="px-4 py-3 text-center">Thời Hạn</th>
                 <th className="px-4 py-3 text-center">Ngày BD</th>
@@ -310,6 +313,9 @@ export default function MemberManager({ packages, members, setMembers }) {
                     <td className="px-4 py-3 text-gray-400">{i + 1}</td>
                     <td className="px-4 py-3 font-medium text-gray-800">{m.name}</td>
                     <td className="px-4 py-3 text-gray-500 text-xs">{m.email || m.phone || '—'}</td>
+                    <td className="px-4 py-3 text-xs text-gray-600">
+                      {packages.find(p => p.id === m.packageId)?.name || <span className="text-gray-300">—</span>}
+                    </td>
                     <td className="px-4 py-3 text-right text-green-600 font-semibold">{formatMoney(m.paymentAmount)}</td>
                     <td className="px-4 py-3 text-center text-gray-600">{durationLabel(m.duration)}</td>
                     <td className="px-4 py-3 text-center text-gray-600">{formatDate(m.startDate)}</td>
@@ -357,6 +363,16 @@ export default function MemberManager({ packages, members, setMembers }) {
                 placeholder={editId ? '(giữ nguyên nếu bỏ trống)' : '0901234567'}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Gói Family</label>
+            <select value={form.packageId} onChange={e => setForm(f => ({ ...f, packageId: e.target.value }))}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+              <option value="">— Chưa gán gói —</option>
+              {packages.map(p => (
+                <option key={p.id} value={p.id}>{p.name}{p.ownerEmail ? ` (${p.ownerEmail})` : ''}</option>
+              ))}
+            </select>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
