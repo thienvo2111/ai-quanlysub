@@ -15,12 +15,34 @@ function toInputDate(str) {
 
 function calcExpiryDate(startDate, duration) {
   const d = new Date(startDate)
-  if (duration === '1m') d.setMonth(d.getMonth() + 1)
-  else if (duration === '3m') d.setMonth(d.getMonth() + 3)
-  else if (duration === '6m') d.setMonth(d.getMonth() + 6)
-  else if (duration === '1y') d.setFullYear(d.getFullYear() + 1)
+  if (duration === '1y') {
+    d.setFullYear(d.getFullYear() + 1)
+  } else {
+    const m = parseInt(duration)
+    if (!isNaN(m)) d.setMonth(d.getMonth() + m)
+  }
   return d.toISOString().split('T')[0]
 }
+
+function durationLabel(dur) {
+  if (dur === '1y') return '1 năm'
+  const m = parseInt(dur)
+  return !isNaN(m) ? `${m} tháng` : dur
+}
+
+// Decompose stored duration back to form state
+function parseDuration(dur) {
+  if (['1m', '3m', '6m', '1y'].includes(dur)) return { duration: dur, customMonths: 2 }
+  const m = parseInt(dur)
+  if (!isNaN(m)) return { duration: 'custom', customMonths: m }
+  return { duration: '1m', customMonths: 2 }
+}
+
+// Returns the duration key to store (e.g. 'custom' + 2 → '2m')
+function effectiveDuration(duration, customMonths) {
+  return duration === 'custom' ? `${customMonths || 1}m` : duration
+}
+
 function getDaysLeft(expiryDate) {
   return Math.ceil((new Date(expiryDate) - new Date()) / (1000 * 60 * 60 * 24))
 }
@@ -33,11 +55,10 @@ function getStatus(expiryDate) {
 function formatMoney(n) { return (n || 0).toLocaleString('vi-VN') + ' ₫' }
 function formatDate(s) { return s ? new Date(s).toLocaleDateString('vi-VN') : '—' }
 
-const DURATION_LABELS = { '1m': '1 tháng', '3m': '3 tháng', '6m': '6 tháng', '1y': '1 năm' }
 const DURATION_MONTHS = { '1m': 1, '3m': 3, '6m': 6, '1y': 12 }
 const today = new Date().toISOString().split('T')[0]
-const EMPTY_FORM = { name: '', email: '', phone: '', paymentAmount: '', duration: '1m', startDate: today }
-const EMPTY_RENEW = { paymentAmount: '', duration: '1m', startDate: today }
+const EMPTY_FORM = { name: '', email: '', phone: '', paymentAmount: '', duration: '1m', customMonths: 2, startDate: today }
+const EMPTY_RENEW = { paymentAmount: '', duration: '1m', customMonths: 2, startDate: today }
 
 function StatusBadge({ expiryDate }) {
   const s = getStatus(expiryDate)
@@ -55,6 +76,31 @@ function usePricePerMonth() {
   return [price, setPrice]
 }
 
+function DurationSelect({ value, customMonths, onChange, onCustomMonthsChange }) {
+  return (
+    <div className="space-y-2">
+      <select value={value} onChange={e => onChange(e.target.value)}
+        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+        <option value="1m">1 tháng</option>
+        <option value="3m">3 tháng</option>
+        <option value="6m">6 tháng</option>
+        <option value="1y">1 năm</option>
+        <option value="custom">Tùy chỉnh...</option>
+      </select>
+      {value === 'custom' && (
+        <div className="flex items-center gap-2">
+          <input
+            type="number" min="1" max="24" value={customMonths}
+            onChange={e => onCustomMonthsChange(Number(e.target.value) || 1)}
+            className="w-20 border border-blue-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <span className="text-sm text-gray-500">tháng</span>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function MemberManager({ packages, members, setMembers }) {
   const [pricePerMonth, setPricePerMonth] = usePricePerMonth()
   const [editingPrice, setEditingPrice] = useState(false)
@@ -68,40 +114,43 @@ export default function MemberManager({ packages, members, setMembers }) {
   const [renewForm, setRenewForm] = useState(EMPTY_RENEW)
   const [filter, setFilter] = useState('all')
 
-  const derivedExpiry = calcExpiryDate(form.startDate || today, form.duration)
-  const renewExpiry = calcExpiryDate(renewForm.startDate || today, renewForm.duration)
+  const formEffDur = effectiveDuration(form.duration, form.customMonths)
+  const renewEffDur = effectiveDuration(renewForm.duration, renewForm.customMonths)
+  const derivedExpiry = calcExpiryDate(form.startDate || today, formEffDur)
+  const renewExpiry = calcExpiryDate(renewForm.startDate || today, renewEffDur)
 
-  // Auto-calculate amount when duration changes in add/edit form
+  // Auto-calculate amount when duration/customMonths changes in add/edit form
   useEffect(() => {
-    const months = DURATION_MONTHS[form.duration] || 1
+    const months = form.duration === 'custom'
+      ? (form.customMonths || 1)
+      : (DURATION_MONTHS[form.duration] || 1)
     setForm(f => ({ ...f, paymentAmount: pricePerMonth * months }))
-  }, [form.duration, pricePerMonth])
+  }, [form.duration, form.customMonths, pricePerMonth])
 
-  // Auto-calculate amount when duration changes in renew form
+  // Auto-calculate amount when duration/customMonths changes in renew form
   useEffect(() => {
-    const months = DURATION_MONTHS[renewForm.duration] || 1
+    const months = renewForm.duration === 'custom'
+      ? (renewForm.customMonths || 1)
+      : (DURATION_MONTHS[renewForm.duration] || 1)
     setRenewForm(f => ({ ...f, paymentAmount: pricePerMonth * months }))
-  }, [renewForm.duration, pricePerMonth])
+  }, [renewForm.duration, renewForm.customMonths, pricePerMonth])
 
   function openAdd() {
     setEditId(null)
-    const months = DURATION_MONTHS['1m']
-    setForm({ ...EMPTY_FORM, paymentAmount: pricePerMonth * months })
+    setForm({ ...EMPTY_FORM, paymentAmount: pricePerMonth * 1 })
     setModalOpen(true)
   }
 
   function openEdit(m) {
     setEditId(m.id)
-    // email/phone intentionally left blank — user fills only if they want to update
-    const months = DURATION_MONTHS[m.duration] || 1
-    setForm({ name: m.name, email: '', phone: '', paymentAmount: m.paymentAmount, duration: m.duration, startDate: toInputDate(m.startDate) })
+    const { duration, customMonths } = parseDuration(m.duration)
+    setForm({ name: m.name, email: '', phone: '', paymentAmount: m.paymentAmount, duration, customMonths, startDate: toInputDate(m.startDate) })
     setModalOpen(true)
   }
 
   function openRenew(m) {
     setRenewTarget(m)
-    const months = DURATION_MONTHS['1m']
-    setRenewForm({ paymentAmount: pricePerMonth * months, duration: '1m', startDate: today })
+    setRenewForm({ paymentAmount: pricePerMonth * 1, duration: '1m', customMonths: 2, startDate: today })
     setRenewOpen(true)
   }
 
@@ -111,18 +160,18 @@ export default function MemberManager({ packages, members, setMembers }) {
   function handleSave(e) {
     e.preventDefault()
     if (!form.name || !form.paymentAmount || !form.startDate) return
-    const expiryDate = calcExpiryDate(form.startDate, form.duration)
+    const dur = effectiveDuration(form.duration, form.customMonths)
+    const expiryDate = calcExpiryDate(form.startDate, dur)
     if (editId) {
       setMembers(prev => prev.map(m => {
         if (m.id !== editId) return m
         return {
           ...m,
           name: form.name,
-          // only update email/phone if user typed something; otherwise keep existing
           email: form.email || m.email || '',
           phone: form.phone || m.phone || '',
           paymentAmount: Number(form.paymentAmount),
-          duration: form.duration,
+          duration: dur,
           startDate: form.startDate,
           expiryDate,
         }
@@ -134,7 +183,7 @@ export default function MemberManager({ packages, members, setMembers }) {
         email: form.email,
         phone: form.phone,
         paymentAmount: Number(form.paymentAmount),
-        duration: form.duration,
+        duration: dur,
         startDate: form.startDate,
         expiryDate,
       }])
@@ -145,9 +194,10 @@ export default function MemberManager({ packages, members, setMembers }) {
   function handleRenew(e) {
     e.preventDefault()
     if (!renewForm.paymentAmount || !renewForm.startDate) return
-    const expiryDate = calcExpiryDate(renewForm.startDate, renewForm.duration)
+    const dur = effectiveDuration(renewForm.duration, renewForm.customMonths)
+    const expiryDate = calcExpiryDate(renewForm.startDate, dur)
     setMembers(prev => prev.map(m => m.id === renewTarget.id
-      ? { ...m, startDate: renewForm.startDate, duration: renewForm.duration, expiryDate, paymentAmount: m.paymentAmount + Number(renewForm.paymentAmount) }
+      ? { ...m, startDate: renewForm.startDate, duration: dur, expiryDate, paymentAmount: m.paymentAmount + Number(renewForm.paymentAmount) }
       : m))
     closeRenew()
   }
@@ -261,7 +311,7 @@ export default function MemberManager({ packages, members, setMembers }) {
                     <td className="px-4 py-3 font-medium text-gray-800">{m.name}</td>
                     <td className="px-4 py-3 text-gray-500 text-xs">{m.email || m.phone || '—'}</td>
                     <td className="px-4 py-3 text-right text-green-600 font-semibold">{formatMoney(m.paymentAmount)}</td>
-                    <td className="px-4 py-3 text-center text-gray-600">{DURATION_LABELS[m.duration] || m.duration}</td>
+                    <td className="px-4 py-3 text-center text-gray-600">{durationLabel(m.duration)}</td>
                     <td className="px-4 py-3 text-center text-gray-600">{formatDate(m.startDate)}</td>
                     <td className="px-4 py-3 text-center text-gray-600">{formatDate(m.expiryDate)}</td>
                     <td className="px-4 py-3 text-center">
@@ -311,13 +361,12 @@ export default function MemberManager({ packages, members, setMembers }) {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Thời hạn <span className="text-red-500">*</span></label>
-              <select value={form.duration} onChange={e => setForm(f => ({ ...f, duration: e.target.value }))}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
-                <option value="1m">1 tháng</option>
-                <option value="3m">3 tháng</option>
-                <option value="6m">6 tháng</option>
-                <option value="1y">1 năm</option>
-              </select>
+              <DurationSelect
+                value={form.duration}
+                customMonths={form.customMonths}
+                onChange={v => setForm(f => ({ ...f, duration: v }))}
+                onCustomMonthsChange={v => setForm(f => ({ ...f, customMonths: v }))}
+              />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Ngày bắt đầu <span className="text-red-500">*</span></label>
@@ -344,55 +393,50 @@ export default function MemberManager({ packages, members, setMembers }) {
             <button type="submit" className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg text-sm font-medium transition-colors">
               {editId ? 'Cập Nhật' : 'Thêm Thành Viên'}
             </button>
-            <button type="button" onClick={closeModal} className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 rounded-lg text-sm font-medium transition-colors">Hủy</button>
+            <button type="button" onClick={closeModal}
+              className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 rounded-lg text-sm font-medium transition-colors">Hủy</button>
           </div>
         </form>
       </Modal>
 
       {/* Renew Modal */}
       <Modal isOpen={renewOpen} onClose={closeRenew} title={`Gia Hạn: ${renewTarget?.name || ''}`}>
-        {renewTarget && (
-          <div className="mb-4 bg-gray-50 rounded-lg p-3 text-sm text-gray-600">
-            <p>Hết hạn hiện tại: <strong className="text-red-500">{formatDate(renewTarget.expiryDate)}</strong></p>
-            <p>Tổng đã trả: <strong className="text-green-600">{formatMoney(renewTarget.paymentAmount)}</strong></p>
-          </div>
-        )}
         <form onSubmit={handleRenew} className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Thời hạn mới <span className="text-red-500">*</span></label>
-              <select value={renewForm.duration} onChange={e => setRenewForm(f => ({ ...f, duration: e.target.value }))}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-white">
-                <option value="1m">1 tháng</option>
-                <option value="3m">3 tháng</option>
-                <option value="6m">6 tháng</option>
-                <option value="1y">1 năm</option>
-              </select>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Thời hạn gia hạn</label>
+              <DurationSelect
+                value={renewForm.duration}
+                customMonths={renewForm.customMonths}
+                onChange={v => setRenewForm(f => ({ ...f, duration: v }))}
+                onCustomMonthsChange={v => setRenewForm(f => ({ ...f, customMonths: v }))}
+              />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Ngày bắt đầu <span className="text-red-500">*</span></label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Ngày bắt đầu mới</label>
               <input type="date" value={renewForm.startDate} onChange={e => setRenewForm(f => ({ ...f, startDate: e.target.value }))}
-                required className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
+                required className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Số tiền gia hạn (₫) <span className="text-red-500">*</span>
+              Số tiền gia hạn (₫)
               <span className="text-gray-400 font-normal ml-2 text-xs">tự tính · có thể điều chỉnh</span>
             </label>
             <input type="number" value={renewForm.paymentAmount}
               onChange={e => setRenewForm(f => ({ ...f, paymentAmount: e.target.value }))}
               required min="0"
-              className="w-full border border-green-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-green-50" />
+              className="w-full border border-blue-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-blue-50" />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Ngày hết hạn mới (tự tính)</label>
             <input type="text" value={formatDate(renewExpiry)} readOnly
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-green-50 text-green-700 font-medium" />
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 text-gray-500" />
           </div>
           <div className="flex gap-3 pt-2">
-            <button type="submit" className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg text-sm font-medium transition-colors">Xác Nhận Gia Hạn</button>
-            <button type="button" onClick={closeRenew} className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 rounded-lg text-sm font-medium transition-colors">Hủy</button>
+            <button type="submit" className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg text-sm font-medium transition-colors">Gia Hạn</button>
+            <button type="button" onClick={closeRenew}
+              className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 rounded-lg text-sm font-medium transition-colors">Hủy</button>
           </div>
         </form>
       </Modal>
