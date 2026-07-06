@@ -43,8 +43,7 @@ function StatusBadge({ expiryDate }) {
 
 export default function PackageManager({ packages, setPackages, members = [] }) {
   function getMemberCount(pkgId) {
-    // active members (not expired)
-    return members.filter(m => getDaysLeft(m.expiryDate) >= 0).length
+    return members.filter(m => m.packageId === pkgId).length
   }
   const [modalOpen, setModalOpen] = useState(false)
   const [editId, setEditId] = useState(null)
@@ -119,52 +118,47 @@ export default function PackageManager({ packages, setPackages, members = [] }) 
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-gray-50 text-gray-500 uppercase text-xs border-b border-gray-100">
-                <th className="px-4 py-3 text-left">STT</th>
-                <th className="px-4 py-3 text-left">Tên Gói</th>
-                <th className="px-4 py-3 text-left">Email Chủ</th>
-                <th className="px-4 py-3 text-right">Chi Phí</th>
-                <th className="px-4 py-3 text-center">Ngày Mua</th>
-                <th className="px-4 py-3 text-center">Ngày Hết Hạn</th>
-                <th className="px-4 py-3 text-center">Còn Lại</th>
-                <th className="px-4 py-3 text-center">Thành Viên</th>
-                <th className="px-4 py-3 text-center">Trạng Thái</th>
-                <th className="px-4 py-3 text-center">Ghi Chú</th>
-                <th className="px-4 py-3 text-center">Hành Động</th>
+                <th className="px-3 py-2.5 text-left whitespace-nowrap w-8">STT</th>
+                <th className="px-3 py-2.5 text-left whitespace-nowrap">Tên Gói</th>
+                <th className="px-3 py-2.5 text-left whitespace-nowrap">Email Chủ</th>
+                <th className="px-3 py-2.5 text-right whitespace-nowrap">Chi Phí</th>
+                <th className="px-3 py-2.5 text-center whitespace-nowrap">Ngày Mua</th>
+                <th className="px-3 py-2.5 text-center whitespace-nowrap">Ngày Hết Hạn</th>
+                <th className="px-3 py-2.5 text-center whitespace-nowrap">Còn Lại</th>
+                <th className="px-3 py-2.5 text-center whitespace-nowrap">Thành Viên</th>
+                <th className="px-3 py-2.5 text-center whitespace-nowrap">Trạng Thái</th>
+                <th className="px-3 py-2.5 text-center whitespace-nowrap">Ghi Chú</th>
+                <th className="px-3 py-2.5 text-center whitespace-nowrap">Hành Động</th>
               </tr>
             </thead>
             <tbody>
               {packages.map((pkg, i) => {
                 const days = getDaysLeft(pkg.expiryDate)
+                const count = getMemberCount(pkg.id)
                 return (
                   <tr key={pkg.id} className={`border-b border-gray-50 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-                    <td className="px-4 py-3 text-gray-400">{i + 1}</td>
-                    <td className="px-4 py-3 font-medium text-gray-800">{pkg.name}</td>
-                    <td className="px-4 py-3 text-gray-500 text-xs">{pkg.ownerEmail || '—'}</td>
-                    <td className="px-4 py-3 text-right text-red-600 font-semibold">{formatMoney(pkg.cost)}</td>
-                    <td className="px-4 py-3 text-center text-gray-600">{formatDate(pkg.purchaseDate)}</td>
-                    <td className="px-4 py-3 text-center text-gray-600">{formatDate(pkg.expiryDate)}</td>
-                    <td className="px-4 py-3 text-center">
-                      <span className={`font-medium ${days < 0 ? 'text-red-500' : days <= 7 ? 'text-yellow-600' : 'text-gray-600'}`}>
-                        {days < 0 ? `Quá hạn ${Math.abs(days)} ngày` : `${days} ngày`}
+                    <td className="px-3 py-2.5 text-gray-400 whitespace-nowrap">{i + 1}</td>
+                    <td className="px-3 py-2.5 font-medium text-gray-800 whitespace-nowrap">{pkg.name}</td>
+                    <td className="px-3 py-2.5 text-gray-500 text-xs whitespace-nowrap">{pkg.ownerEmail || '—'}</td>
+                    <td className="px-3 py-2.5 text-right text-red-600 font-semibold whitespace-nowrap">{formatMoney(pkg.cost)}</td>
+                    <td className="px-3 py-2.5 text-center text-gray-600 whitespace-nowrap">{formatDate(pkg.purchaseDate)}</td>
+                    <td className="px-3 py-2.5 text-center text-gray-600 whitespace-nowrap">{formatDate(pkg.expiryDate)}</td>
+                    <td className="px-3 py-2.5 text-center whitespace-nowrap">
+                      <span className={`font-medium text-xs ${days < 0 ? 'text-red-500' : days <= 7 ? 'text-yellow-600' : 'text-gray-600'}`}>
+                        {days < 0 ? `Quá ${Math.abs(days)} ngày` : `${days} ngày`}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-center">
-                      <span className="inline-flex items-center gap-1 bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full text-xs font-semibold">
-                        👥 {getMemberCount(pkg.id)}
+                    <td className="px-3 py-2.5 text-center whitespace-nowrap">
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${count >= 5 ? 'bg-red-50 text-red-600' : 'bg-blue-50 text-blue-700'}`}>
+                        👥 {count}/5
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-center"><StatusBadge expiryDate={pkg.expiryDate} /></td>
-                    <td className="px-4 py-3 text-gray-400 text-xs max-w-xs truncate">{pkg.notes || '—'}</td>
-                    <td className="px-4 py-3 text-center">
-                      <div className="flex gap-2 justify-center">
-                        <button
-                          onClick={() => openEdit(pkg)}
-                          className="bg-blue-50 hover:bg-blue-100 text-blue-600 px-3 py-1 rounded text-xs font-medium transition-colors"
-                        >Sửa</button>
-                        <button
-                          onClick={() => handleDelete(pkg.id)}
-                          className="bg-red-50 hover:bg-red-100 text-red-600 px-3 py-1 rounded text-xs font-medium transition-colors"
-                        >Xóa</button>
+                    <td className="px-3 py-2.5 text-center whitespace-nowrap"><StatusBadge expiryDate={pkg.expiryDate} /></td>
+                    <td className="px-3 py-2.5 text-gray-400 text-xs whitespace-nowrap max-w-[120px] truncate">{pkg.notes || '—'}</td>
+                    <td className="px-3 py-2.5 text-center whitespace-nowrap">
+                      <div className="flex gap-1 justify-center">
+                        <button onClick={() => openEdit(pkg)} className="bg-blue-50 hover:bg-blue-100 text-blue-600 px-2 py-1 rounded text-xs font-medium transition-colors">Sửa</button>
+                        <button onClick={() => handleDelete(pkg.id)} className="bg-red-50 hover:bg-red-100 text-red-600 px-2 py-1 rounded text-xs font-medium transition-colors">Xóa</button>
                       </div>
                     </td>
                   </tr>
