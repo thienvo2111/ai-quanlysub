@@ -113,6 +113,7 @@ export default function MemberManager({ packages, members, setMembers }) {
   const [form, setForm] = useState(EMPTY_FORM)
   const [renewForm, setRenewForm] = useState(EMPTY_RENEW)
   const [filter, setFilter] = useState('all')
+  const [search, setSearch] = useState('')
 
   const formEffDur = effectiveDuration(form.duration, form.customMonths)
   const renewEffDur = effectiveDuration(renewForm.duration, renewForm.customMonths)
@@ -224,7 +225,10 @@ export default function MemberManager({ packages, members, setMembers }) {
     setEditingPrice(false)
   }
 
-  const filtered = filter === 'all' ? members : members.filter(m => getStatus(m.expiryDate) === filter)
+  const q = search.trim().toLowerCase()
+  const filtered = members
+    .filter(m => filter === 'all' || getStatus(m.expiryDate) === filter)
+    .filter(m => !q || [m.name, m.email, m.phone].some(v => (v || '').toLowerCase().includes(q)))
   const totalRevenue = members.reduce((s, m) => s + (m.paymentAmount || 0), 0)
 
   const filterBtns = [
@@ -275,6 +279,21 @@ export default function MemberManager({ packages, members, setMembers }) {
           onClick={openAdd}
           className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
         >+ Thêm Thành Viên</button>
+      </div>
+
+      {/* Search */}
+      <div className="relative mb-4">
+        <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+        </svg>
+        <input
+          type="text" value={search} onChange={e => setSearch(e.target.value)}
+          placeholder="Tìm theo tên, email, SĐT..."
+          className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+        />
+        {search && (
+          <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-lg leading-none">×</button>
+        )}
       </div>
 
       {/* Price config */}
