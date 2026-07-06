@@ -162,6 +162,14 @@ export default function MemberManager({ packages, members, setMembers }) {
     if (!form.name || !form.paymentAmount || !form.startDate) return
     const dur = effectiveDuration(form.duration, form.customMonths)
     const expiryDate = calcExpiryDate(form.startDate, dur)
+    const targetPkg = form.packageId
+    if (targetPkg) {
+      const count = members.filter(m => m.packageId === targetPkg && m.id !== editId).length
+      if (count >= 5) {
+        alert('Gói này đã đủ 5 thành viên. Không thể thêm thêm.')
+        return
+      }
+    }
     if (editId) {
       setMembers(prev => prev.map(m => {
         if (m.id !== editId) return m
@@ -226,6 +234,35 @@ export default function MemberManager({ packages, members, setMembers }) {
     { key: 'expired', label: 'Hết Hạn' },
   ]
 
+  // Group filtered members by packageId
+  const groups = []
+  const pkgMap = {}
+  packages.forEach(p => { pkgMap[p.id] = p })
+  const seen = new Set()
+  packages.forEach(p => {
+    const mems = filtered.filter(m => m.packageId === p.id)
+    if (mems.length > 0) { groups.push({ pkg: p, members: mems }); seen.add(p.id) }
+  })
+  const unassigned = filtered.filter(m => !m.packageId || !pkgMap[m.packageId])
+  if (unassigned.length > 0) groups.push({ pkg: null, members: unassigned })
+
+  const TABLE_HEAD = (
+    <thead>
+      <tr className="bg-gray-50 text-gray-500 uppercase text-xs border-b border-gray-100">
+        <th className="px-3 py-2.5 text-left whitespace-nowrap w-8">STT</th>
+        <th className="px-3 py-2.5 text-left whitespace-nowrap">Tên</th>
+        <th className="px-3 py-2.5 text-left whitespace-nowrap">Email / SĐT</th>
+        <th className="px-3 py-2.5 text-right whitespace-nowrap">Số Tiền</th>
+        <th className="px-3 py-2.5 text-center whitespace-nowrap">Thời Hạn</th>
+        <th className="px-3 py-2.5 text-center whitespace-nowrap">Ngày BD</th>
+        <th className="px-3 py-2.5 text-center whitespace-nowrap">Ngày HH</th>
+        <th className="px-3 py-2.5 text-center whitespace-nowrap">Còn Lại</th>
+        <th className="px-3 py-2.5 text-center whitespace-nowrap">Trạng Thái</th>
+        <th className="px-3 py-2.5 text-center whitespace-nowrap">Hành Động</th>
+      </tr>
+    </thead>
+  )
+
   return (
     <div className="p-6">
       {/* Header */}
@@ -281,63 +318,70 @@ export default function MemberManager({ packages, members, setMembers }) {
         ))}
       </div>
 
-      {/* Table */}
+      {/* Grouped tables */}
       {filtered.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
           <p className="text-4xl mb-3">👥</p>
           <p>{filter === 'all' ? 'Chưa có thành viên nào.' : 'Không có thành viên nào trong nhóm này.'}</p>
         </div>
       ) : (
-        <div className="overflow-x-auto bg-white rounded-xl shadow-sm border border-gray-100">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-gray-50 text-gray-500 uppercase text-xs border-b border-gray-100">
-                <th className="px-4 py-3 text-left">STT</th>
-                <th className="px-4 py-3 text-left">Tên</th>
-                <th className="px-4 py-3 text-left">Email / SĐT</th>
-                <th className="px-4 py-3 text-left">Gói Family</th>
-                <th className="px-4 py-3 text-right">Số Tiền</th>
-                <th className="px-4 py-3 text-center">Thời Hạn</th>
-                <th className="px-4 py-3 text-center">Ngày BD</th>
-                <th className="px-4 py-3 text-center">Ngày HH</th>
-                <th className="px-4 py-3 text-center">Còn Lại</th>
-                <th className="px-4 py-3 text-center">Trạng Thái</th>
-                <th className="px-4 py-3 text-center">Hành Động</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((m, i) => {
-                const days = getDaysLeft(m.expiryDate)
-                return (
-                  <tr key={m.id} className={`border-b border-gray-50 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-                    <td className="px-4 py-3 text-gray-400">{i + 1}</td>
-                    <td className="px-4 py-3 font-medium text-gray-800">{m.name}</td>
-                    <td className="px-4 py-3 text-gray-500 text-xs">{m.email || m.phone || '—'}</td>
-                    <td className="px-4 py-3 text-xs text-gray-600">
-                      {packages.find(p => p.id === m.packageId)?.name || <span className="text-gray-300">—</span>}
-                    </td>
-                    <td className="px-4 py-3 text-right text-green-600 font-semibold">{formatMoney(m.paymentAmount)}</td>
-                    <td className="px-4 py-3 text-center text-gray-600">{durationLabel(m.duration)}</td>
-                    <td className="px-4 py-3 text-center text-gray-600">{formatDate(m.startDate)}</td>
-                    <td className="px-4 py-3 text-center text-gray-600">{formatDate(m.expiryDate)}</td>
-                    <td className="px-4 py-3 text-center">
-                      <span className={`font-medium text-xs ${days < 0 ? 'text-red-500' : days <= 7 ? 'text-yellow-600' : 'text-gray-500'}`}>
-                        {days < 0 ? `−${Math.abs(days)} ngày` : `${days} ngày`}
+        <div className="space-y-5">
+          {groups.map(({ pkg, members: grpMembers }, gi) => {
+            const allPkgMembers = pkg ? members.filter(m => m.packageId === pkg.id) : []
+            const slotUsed = pkg ? allPkgMembers.length : null
+            return (
+              <div key={pkg?.id || '__unassigned'} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                {/* Section header */}
+                <div className={`px-4 py-2.5 flex items-center gap-3 flex-wrap border-b border-gray-100 ${pkg ? 'bg-blue-600' : 'bg-gray-100'}`}>
+                  {pkg ? (
+                    <>
+                      <span className="text-white font-semibold text-sm">{pkg.name}</span>
+                      {pkg.ownerEmail && <span className="text-blue-200 text-xs">{pkg.ownerEmail}</span>}
+                      <span className={`ml-auto text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${slotUsed >= 5 ? 'bg-red-100 text-red-700' : 'bg-white/20 text-white'}`}>
+                        {slotUsed}/5 thành viên
                       </span>
-                    </td>
-                    <td className="px-4 py-3 text-center"><StatusBadge expiryDate={m.expiryDate} /></td>
-                    <td className="px-4 py-3 text-center">
-                      <div className="flex gap-1 justify-center">
-                        <button onClick={() => openEdit(m)} className="bg-blue-50 hover:bg-blue-100 text-blue-600 px-2 py-1 rounded text-xs font-medium transition-colors">Sửa</button>
-                        <button onClick={() => openRenew(m)} className="bg-green-50 hover:bg-green-100 text-green-600 px-2 py-1 rounded text-xs font-medium transition-colors">Gia Hạn</button>
-                        <button onClick={() => handleDelete(m.id)} className="bg-red-50 hover:bg-red-100 text-red-600 px-2 py-1 rounded text-xs font-medium transition-colors">Xóa</button>
-                      </div>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+                    </>
+                  ) : (
+                    <span className="text-gray-500 font-medium text-sm">Chưa gán gói</span>
+                  )}
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    {TABLE_HEAD}
+                    <tbody>
+                      {grpMembers.map((m, i) => {
+                        const days = getDaysLeft(m.expiryDate)
+                        return (
+                          <tr key={m.id} className={`border-b border-gray-50 last:border-0 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}>
+                            <td className="px-3 py-2.5 text-gray-400 whitespace-nowrap">{i + 1}</td>
+                            <td className="px-3 py-2.5 font-medium text-gray-800 whitespace-nowrap">{m.name}</td>
+                            <td className="px-3 py-2.5 text-gray-500 text-xs whitespace-nowrap max-w-[160px] truncate">{m.email || m.phone || '—'}</td>
+                            <td className="px-3 py-2.5 text-right text-green-600 font-semibold whitespace-nowrap">{formatMoney(m.paymentAmount)}</td>
+                            <td className="px-3 py-2.5 text-center text-gray-600 whitespace-nowrap">{durationLabel(m.duration)}</td>
+                            <td className="px-3 py-2.5 text-center text-gray-600 whitespace-nowrap">{formatDate(m.startDate)}</td>
+                            <td className="px-3 py-2.5 text-center text-gray-600 whitespace-nowrap">{formatDate(m.expiryDate)}</td>
+                            <td className="px-3 py-2.5 text-center whitespace-nowrap">
+                              <span className={`font-medium text-xs ${days < 0 ? 'text-red-500' : days <= 7 ? 'text-yellow-600' : 'text-gray-500'}`}>
+                                {days < 0 ? `−${Math.abs(days)} ngày` : `${days} ngày`}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2.5 text-center whitespace-nowrap"><StatusBadge expiryDate={m.expiryDate} /></td>
+                            <td className="px-3 py-2.5 text-center whitespace-nowrap">
+                              <div className="flex gap-1 justify-center">
+                                <button onClick={() => openEdit(m)} className="bg-blue-50 hover:bg-blue-100 text-blue-600 px-2 py-1 rounded text-xs font-medium transition-colors">Sửa</button>
+                                <button onClick={() => openRenew(m)} className="bg-green-50 hover:bg-green-100 text-green-600 px-2 py-1 rounded text-xs font-medium transition-colors">Gia Hạn</button>
+                                <button onClick={() => handleDelete(m.id)} className="bg-red-50 hover:bg-red-100 text-red-600 px-2 py-1 rounded text-xs font-medium transition-colors">Xóa</button>
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )
+          })}
         </div>
       )}
 
@@ -369,9 +413,15 @@ export default function MemberManager({ packages, members, setMembers }) {
             <select value={form.packageId} onChange={e => setForm(f => ({ ...f, packageId: e.target.value }))}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
               <option value="">— Chưa gán gói —</option>
-              {packages.map(p => (
-                <option key={p.id} value={p.id}>{p.name}{p.ownerEmail ? ` (${p.ownerEmail})` : ''}</option>
-              ))}
+              {packages.map(p => {
+                const used = members.filter(m => m.packageId === p.id && m.id !== editId).length
+                const full = used >= 5
+                return (
+                  <option key={p.id} value={p.id} disabled={full}>
+                    {p.name} — {used}/5 chỗ{full ? ' (đầy)' : ''}
+                  </option>
+                )
+              })}
             </select>
           </div>
           <div className="grid grid-cols-2 gap-3">
