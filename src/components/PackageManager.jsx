@@ -95,7 +95,7 @@ export default function PackageManager({ packages, setPackages, members = [] }) 
   const totalCost = packages.reduce((s, p) => s + (p.cost || 0), 0)
   const q = search.trim().toLowerCase()
   const filtered = !q ? packages : packages.filter(p =>
-    [p.name, p.ownerEmail].some(v => (v || '').toLowerCase().includes(q))
+    [p.name, p.ownerEmail].some(v => String(v ?? '').toLowerCase().includes(q))
   )
 
   return (

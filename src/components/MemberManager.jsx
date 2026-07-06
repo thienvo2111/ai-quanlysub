@@ -228,7 +228,7 @@ export default function MemberManager({ packages, members, setMembers }) {
   const q = search.trim().toLowerCase()
   const filtered = members
     .filter(m => filter === 'all' || getStatus(m.expiryDate) === filter)
-    .filter(m => !q || [m.name, m.email, m.phone].some(v => (v || '').toLowerCase().includes(q)))
+    .filter(m => !q || [m.name, m.email, m.phone].some(v => String(v ?? '').toLowerCase().includes(q)))
   const totalRevenue = members.reduce((s, m) => s + (m.paymentAmount || 0), 0)
 
   const filterBtns = [
