@@ -348,15 +348,23 @@ export default function MemberManager({ packages, members, setMembers }) {
           {groups.map(({ pkg, members: grpMembers }, gi) => {
             const allPkgMembers = pkg ? members.filter(m => m.packageId === pkg.id) : []
             const slotUsed = pkg ? allPkgMembers.length : null
+            const pkgDays = pkg ? getDaysLeft(pkg.expiryDate) : null
+            const pkgExpired = pkgDays !== null && pkgDays < 0
+            const pkgExpiring = pkgDays !== null && pkgDays >= 0 && pkgDays <= 30
             return (
-              <div key={pkg?.id || '__unassigned'} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+              <div key={pkg?.id || '__unassigned'} className={`bg-white rounded-xl shadow-sm overflow-hidden ${pkgExpired ? 'border-2 border-red-400' : pkgExpiring ? 'border-2 border-yellow-400' : 'border border-gray-100'}`}>
                 {/* Section header */}
-                <div className={`px-4 py-2.5 flex items-center gap-3 flex-wrap border-b border-gray-100 ${pkg ? 'bg-blue-600' : 'bg-gray-100'}`}>
+                <div className={`px-4 py-2.5 flex items-center gap-3 flex-wrap border-b ${pkgExpired ? 'bg-red-600 border-red-500' : pkgExpiring ? 'bg-yellow-500 border-yellow-400' : pkg ? 'bg-blue-600 border-blue-500' : 'bg-gray-100 border-gray-200'}`}>
                   {pkg ? (
                     <>
                       <span className="text-white font-semibold text-sm">{pkg.name}</span>
-                      {pkg.ownerEmail && <span className="text-blue-200 text-xs">{pkg.ownerEmail}</span>}
-                      <span className={`ml-auto text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${slotUsed >= 5 ? 'bg-red-100 text-red-700' : 'bg-white/20 text-white'}`}>
+                      {pkg.ownerEmail && <span className="text-white/70 text-xs">{pkg.ownerEmail}</span>}
+                      <span className="text-white/70 text-xs whitespace-nowrap">
+                        HH: {formatDate(pkg.expiryDate)}
+                        {pkgExpired && <span className="ml-1 font-semibold text-white">⚠ Đã hết hạn!</span>}
+                        {pkgExpiring && <span className="ml-1 font-semibold text-white">⚠ Còn {pkgDays} ngày</span>}
+                      </span>
+                      <span className={`ml-auto text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${slotUsed >= 5 ? 'bg-white text-red-600' : 'bg-white/20 text-white'}`}>
                         {slotUsed}/5 thành viên
                       </span>
                     </>
