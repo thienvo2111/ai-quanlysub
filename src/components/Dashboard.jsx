@@ -23,11 +23,33 @@ function StatusBadge({ expiryDate }) {
   return <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${map[s]}`}>{label[s]}</span>
 }
 
+function getMonthKey(dateStr) {
+  const d = new Date(dateStr)
+  return isNaN(d) ? null : `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+function monthLabel(key) {
+  const [y, m] = key.split('-')
+  return `T${parseInt(m)}/${y}`
+}
+
 export default function Dashboard({ packages, members }) {
   const totalCost = packages.reduce((s, p) => s + (p.cost || 0), 0)
   const totalRevenue = members.reduce((s, m) => s + (m.paymentAmount || 0), 0)
   const profit = totalRevenue - totalCost
   const activeCount = members.filter(m => getStatus(m.expiryDate) === 'active').length
+
+  // Build monthly stats for the next 12 months
+  const now = new Date()
+  const monthKeys = Array.from({ length: 12 }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() + i, 1)
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+  })
+  const monthStats = monthKeys.map(key => ({
+    key,
+    membersExpiring: members.filter(m => getMonthKey(m.expiryDate) === key),
+    membersStarting: members.filter(m => getMonthKey(m.startDate) === key),
+    pkgsExpiring: packages.filter(p => getMonthKey(p.expiryDate) === key),
+  }))
 
   const pkgWarnings = packages.filter(p => {
     const d = getDaysLeft(p.expiryDate)
@@ -101,6 +123,58 @@ export default function Dashboard({ packages, members }) {
             ))}
           </div>
         )}
+      </div>
+
+      {/* Monthly breakdown */}
+      <div>
+        <h3 className="text-base font-semibold text-gray-700 mb-3">Phân Tích Theo Tháng <span className="text-xs font-normal text-gray-400">(12 tháng tới)</span></h3>
+        <div className="overflow-x-auto bg-white rounded-xl shadow-sm border border-gray-100">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-gray-50 text-gray-500 uppercase text-xs border-b border-gray-100">
+                <th className="px-4 py-2.5 text-left whitespace-nowrap">Tháng</th>
+                <th className="px-4 py-2.5 text-center whitespace-nowrap">TV Hết Hạn</th>
+                <th className="px-4 py-2.5 text-center whitespace-nowrap">TV Mới/Gia Hạn</th>
+                <th className="px-4 py-2.5 text-right whitespace-nowrap">Doanh Thu</th>
+                <th className="px-4 py-2.5 text-center whitespace-nowrap">Gói HH</th>
+              </tr>
+            </thead>
+            <tbody>
+              {monthStats.map(({ key, membersExpiring, membersStarting, pkgsExpiring }, i) => {
+                const revenue = membersStarting.reduce((s, m) => s + (m.paymentAmount || 0), 0)
+                const isCurrentMonth = i === 0
+                return (
+                  <tr key={key} className={`border-b border-gray-50 last:border-0 ${isCurrentMonth ? 'bg-blue-50' : i % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}>
+                    <td className="px-4 py-2.5 font-medium whitespace-nowrap">
+                      {monthLabel(key)}
+                      {isCurrentMonth && <span className="ml-2 text-blue-500 text-xs font-normal">hiện tại</span>}
+                    </td>
+                    <td className="px-4 py-2.5 text-center whitespace-nowrap">
+                      {membersExpiring.length > 0
+                        ? <span className="inline-flex items-center gap-1 bg-red-50 text-red-600 px-2 py-0.5 rounded-full text-xs font-semibold">{membersExpiring.length} TV</span>
+                        : <span className="text-gray-300">—</span>}
+                    </td>
+                    <td className="px-4 py-2.5 text-center whitespace-nowrap">
+                      {membersStarting.length > 0
+                        ? <span className="inline-flex items-center gap-1 bg-green-50 text-green-600 px-2 py-0.5 rounded-full text-xs font-semibold">{membersStarting.length} TV</span>
+                        : <span className="text-gray-300">—</span>}
+                    </td>
+                    <td className="px-4 py-2.5 text-right whitespace-nowrap">
+                      {revenue > 0
+                        ? <span className="text-green-600 font-semibold">{formatMoney(revenue)}</span>
+                        : <span className="text-gray-300">—</span>}
+                    </td>
+                    <td className="px-4 py-2.5 text-center whitespace-nowrap">
+                      {pkgsExpiring.length > 0
+                        ? <span className="inline-flex items-center gap-1 bg-orange-50 text-orange-600 px-2 py-0.5 rounded-full text-xs font-semibold">{pkgsExpiring.length} gói</span>
+                        : <span className="text-gray-300">—</span>}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Members table */}
