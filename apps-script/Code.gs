@@ -5,7 +5,7 @@ const SHEET_PACKAGES = 'Packages'
 const SHEET_MEMBERS = 'Members'
 
 const PKG_HEADERS = ['id', 'name', 'ownerEmail', 'cost', 'purchaseDate', 'expiryDate', 'notes']
-const MEM_HEADERS = ['id', 'name', 'email', 'phone', 'paymentAmount', 'duration', 'startDate', 'expiryDate', 'packageId', 'archived']
+const MEM_HEADERS = ['id', 'name', 'email', 'phone', 'paymentAmount', 'totalPaid', 'duration', 'startDate', 'expiryDate', 'packageId', 'archived']
 
 function doGet(e) {
   const action = e.parameter.action

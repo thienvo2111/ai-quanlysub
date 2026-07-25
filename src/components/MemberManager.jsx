@@ -208,7 +208,9 @@ export default function MemberManager({ packages, members, setMembers }) {
     const dur = effectiveDuration(renewForm.duration, renewForm.customMonths)
     const expiryDate = calcExpiryDate(renewForm.startDate, dur)
     setMembers(prev => prev.map(m => m.id === renewTarget.id
-      ? { ...m, startDate: renewForm.startDate, duration: dur, expiryDate, paymentAmount: m.paymentAmount + Number(renewForm.paymentAmount) }
+      ? { ...m, startDate: renewForm.startDate, duration: dur, expiryDate,
+          paymentAmount: Number(renewForm.paymentAmount),
+          totalPaid: (m.totalPaid || m.paymentAmount || 0) + Number(renewForm.paymentAmount) }
       : m))
     closeRenew()
   }
@@ -230,8 +232,8 @@ export default function MemberManager({ packages, members, setMembers }) {
   const filtered = activeMembers
     .filter(m => filter === 'all' || getStatus(m.expiryDate) === filter)
     .filter(m => !q || [m.name, m.email, m.phone].some(v => String(v ?? '').toLowerCase().includes(q)))
-  // Revenue tính toàn bộ kể cả đã ẩn
-  const totalRevenue = members.reduce((s, m) => s + (m.paymentAmount || 0), 0)
+  // Revenue tính toàn bộ kể cả đã ẩn, dùng totalPaid nếu có
+  const totalRevenue = members.reduce((s, m) => s + (m.totalPaid || m.paymentAmount || 0), 0)
 
   const filterBtns = [
     { key: 'all', label: 'Tất Cả' },

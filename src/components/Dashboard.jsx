@@ -35,7 +35,7 @@ function monthLabel(key) {
 export default function Dashboard({ packages, members }) {
   const visibleMembers = members.filter(m => !m.archived)
   const totalCost = packages.reduce((s, p) => s + (p.cost || 0), 0)
-  const totalRevenue = members.reduce((s, m) => s + (m.paymentAmount || 0), 0)
+  const totalRevenue = members.reduce((s, m) => s + (m.totalPaid || m.paymentAmount || 0), 0)
   const profit = totalRevenue - totalCost
   const activeCount = visibleMembers.filter(m => getStatus(m.expiryDate) === 'active').length
 
