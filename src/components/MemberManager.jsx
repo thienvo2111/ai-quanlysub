@@ -214,8 +214,8 @@ export default function MemberManager({ packages, members, setMembers }) {
   }
 
   function handleDelete(id) {
-    if (window.confirm('Xác nhận xóa thành viên này?')) {
-      setMembers(prev => prev.filter(m => m.id !== id))
+    if (window.confirm('Ẩn thành viên này? Doanh thu vẫn được giữ nguyên.')) {
+      setMembers(prev => prev.map(m => m.id === id ? { ...m, archived: true } : m))
     }
   }
 
@@ -225,10 +225,12 @@ export default function MemberManager({ packages, members, setMembers }) {
     setEditingPrice(false)
   }
 
+  const activeMembers = members.filter(m => !m.archived)
   const q = search.trim().toLowerCase()
-  const filtered = members
+  const filtered = activeMembers
     .filter(m => filter === 'all' || getStatus(m.expiryDate) === filter)
     .filter(m => !q || [m.name, m.email, m.phone].some(v => String(v ?? '').toLowerCase().includes(q)))
+  // Revenue tính toàn bộ kể cả đã ẩn
   const totalRevenue = members.reduce((s, m) => s + (m.paymentAmount || 0), 0)
 
   const filterBtns = [
@@ -333,7 +335,7 @@ export default function MemberManager({ packages, members, setMembers }) {
             key={b.key}
             onClick={() => setFilter(b.key)}
             className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${filter === b.key ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
-          >{b.label} ({b.key === 'all' ? members.length : members.filter(m => getStatus(m.expiryDate) === b.key).length})</button>
+          >{b.label} ({b.key === 'all' ? activeMembers.length : activeMembers.filter(m => getStatus(m.expiryDate) === b.key).length})</button>
         ))}
       </div>
 
@@ -346,7 +348,7 @@ export default function MemberManager({ packages, members, setMembers }) {
       ) : (
         <div className="space-y-5">
           {groups.map(({ pkg, members: grpMembers }, gi) => {
-            const allPkgMembers = pkg ? members.filter(m => m.packageId === pkg.id) : []
+            const allPkgMembers = pkg ? activeMembers.filter(m => m.packageId === pkg.id) : []
             const slotUsed = pkg ? allPkgMembers.length : null
             const pkgDays = pkg ? getDaysLeft(pkg.expiryDate) : null
             const pkgExpired = pkgDays !== null && pkgDays < 0

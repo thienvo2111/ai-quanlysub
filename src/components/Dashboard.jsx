@@ -33,12 +33,13 @@ function monthLabel(key) {
 }
 
 export default function Dashboard({ packages, members }) {
+  const visibleMembers = members.filter(m => !m.archived)
   const totalCost = packages.reduce((s, p) => s + (p.cost || 0), 0)
   const totalRevenue = members.reduce((s, m) => s + (m.paymentAmount || 0), 0)
   const profit = totalRevenue - totalCost
-  const activeCount = members.filter(m => getStatus(m.expiryDate) === 'active').length
+  const activeCount = visibleMembers.filter(m => getStatus(m.expiryDate) === 'active').length
 
-  // Build monthly stats for the next 12 months
+  // Build monthly stats for the next 12 months (chỉ tính visible members)
   const now = new Date()
   const monthKeys = Array.from({ length: 12 }, (_, i) => {
     const d = new Date(now.getFullYear(), now.getMonth() + i, 1)
@@ -46,8 +47,8 @@ export default function Dashboard({ packages, members }) {
   })
   const monthStats = monthKeys.map(key => ({
     key,
-    membersExpiring: members.filter(m => getMonthKey(m.expiryDate) === key),
-    membersStarting: members.filter(m => getMonthKey(m.startDate) === key),
+    membersExpiring: visibleMembers.filter(m => getMonthKey(m.expiryDate) === key),
+    membersStarting: visibleMembers.filter(m => getMonthKey(m.startDate) === key),
     pkgsExpiring: packages.filter(p => getMonthKey(p.expiryDate) === key),
   }))
 
@@ -56,11 +57,11 @@ export default function Dashboard({ packages, members }) {
     return d >= 0 && d <= 7
   })
   const pkgExpired = packages.filter(p => getDaysLeft(p.expiryDate) < 0)
-  const memWarnings = members.filter(m => {
+  const memWarnings = visibleMembers.filter(m => {
     const d = getDaysLeft(m.expiryDate)
     return d >= 0 && d <= 7
   })
-  const memExpired = members.filter(m => getDaysLeft(m.expiryDate) < 0)
+  const memExpired = visibleMembers.filter(m => getDaysLeft(m.expiryDate) < 0)
 
   const hasWarnings = pkgWarnings.length || pkgExpired.length || memWarnings.length || memExpired.length
 
@@ -180,7 +181,7 @@ export default function Dashboard({ packages, members }) {
       {/* Members table */}
       <div>
         <h3 className="text-base font-semibold text-gray-700 mb-3">Danh Sách Thành Viên</h3>
-        {members.length === 0 ? (
+        {visibleMembers.length === 0 ? (
           <div className="text-center py-10 text-gray-400">Chưa có thành viên nào</div>
         ) : (
           <div className="overflow-x-auto bg-white rounded-xl shadow-sm border border-gray-100">
@@ -195,7 +196,7 @@ export default function Dashboard({ packages, members }) {
                 </tr>
               </thead>
               <tbody>
-                {members.map((m, i) => (
+                {visibleMembers.map((m, i) => (
                   <tr key={m.id} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                     <td className="px-4 py-3 font-medium text-gray-800">{m.name}</td>
                     <td className="px-4 py-3 text-gray-500">{m.email || m.phone || '—'}</td>
