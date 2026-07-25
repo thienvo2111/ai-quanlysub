@@ -1,9 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
-
-const url = import.meta.env.VITE_SUPABASE_URL
-const key = import.meta.env.VITE_SUPABASE_ANON_KEY
-// eslint-disable-next-line no-unused-vars
-const supabase = (url && key) ? createClient(url, key) : null
+import { supabase } from './supabase'
 
 // Bỏ created_at trước khi insert (auto-generated bởi Supabase)
 function clean(row) {

@@ -4,6 +4,7 @@ import PackageManager from './components/PackageManager'
 import MemberManager from './components/MemberManager'
 import Login from './components/Login'
 import { api } from './api'
+import { supabase } from './supabase'
 
 const SAMPLE_PACKAGES = [
   { id: '1', name: 'Gemini AI Pro - T6/2026', cost: 480000, purchaseDate: '2026-06-01', expiryDate: '2026-07-01', notes: 'Gói family 5 slot' }
@@ -44,7 +45,7 @@ export default function App() {
   const [error, setError] = useState(null)
   const [activeTab, setActiveTab] = useState('dashboard')
 
-  // Tất cả hooks phải đặt trước conditional return — quy tắc React
+  // Load dữ liệu ban đầu
   useEffect(() => {
     if (!authed || !HAS_API) return
     setLoading(true)
@@ -54,8 +55,22 @@ export default function App() {
         if (mems.length > 0) setMembersState(mems)
         setError(null)
       })
-      .catch(e => setError('Không thể kết nối Supabase. Đang dùng dữ liệu cục bộ.'))
+      .catch(() => setError('Không thể kết nối Supabase. Đang dùng dữ liệu cục bộ.'))
       .finally(() => setLoading(false))
+  }, [authed])
+
+  // Real-time: tự cập nhật khi có thay đổi từ thiết bị khác
+  useEffect(() => {
+    if (!authed || !HAS_API || !supabase) return
+    const channel = supabase.channel('db-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'packages' }, () => {
+        api.getPackages().then(pkgs => { if (pkgs.length > 0) setPackagesState(pkgs) }).catch(() => {})
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'members' }, () => {
+        api.getMembers().then(mems => { if (mems.length > 0) setMembersState(mems) }).catch(() => {})
+      })
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
   }, [authed])
 
   const setPackages = useCallback(async (updater) => {
