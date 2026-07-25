@@ -50,8 +50,8 @@ export default function App() {
     setLoading(true)
     Promise.all([api.getPackages(), api.getMembers()])
       .then(([pkgs, mems]) => {
-        if (pkgs.length > 0) setPackagesState(pkgs.map(p => ({ ...p, cost: Number(p.cost) })))
-        if (mems.length > 0) setMembersState(mems.map(m => ({ ...m, paymentAmount: Number(m.paymentAmount) })))
+        if (pkgs.length > 0) setPackagesState(pkgs)
+        if (mems.length > 0) setMembersState(mems)
         setError(null)
       })
       .catch(e => setError('Không thể kết nối Supabase. Đang dùng dữ liệu cục bộ.'))
