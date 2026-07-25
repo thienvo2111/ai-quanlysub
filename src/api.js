@@ -1,24 +1,31 @@
-const BASE_URL = import.meta.env.VITE_APPS_SCRIPT_URL
+import { createClient } from '@supabase/supabase-js'
 
-async function fetchSheet(sheet) {
-  const res = await fetch(`${BASE_URL}?sheet=${sheet}`)
-  const json = await res.json()
-  if (!json.ok) throw new Error(json.error)
-  return json.data
-}
+const supabase = createClient(
+  import.meta.env.VITE_SUPABASE_URL,
+  import.meta.env.VITE_SUPABASE_ANON_KEY
+)
 
-async function saveSheet(sheet, data) {
-  const res = await fetch(BASE_URL, {
-    method: 'POST',
-    body: JSON.stringify({ sheet, data }),
-  })
-  const json = await res.json()
-  if (!json.ok) throw new Error(json.error)
+async function saveTable(table, rows) {
+  // Xóa toàn bộ rồi insert lại
+  await supabase.from(table).delete().neq('id', '')
+  if (rows.length > 0) {
+    const { error } = await supabase.from(table).insert(rows)
+    if (error) throw new Error(error.message)
+  }
 }
 
 export const api = {
-  getPackages: () => fetchSheet('Packages'),
-  savePackages: (data) => saveSheet('Packages', data),
-  getMembers: () => fetchSheet('Members'),
-  saveMembers: (data) => saveSheet('Members', data),
+  getPackages: async () => {
+    const { data, error } = await supabase.from('packages').select('*').order('created_at')
+    if (error) throw new Error(error.message)
+    return data ?? []
+  },
+  savePackages: (rows) => saveTable('packages', rows),
+
+  getMembers: async () => {
+    const { data, error } = await supabase.from('members').select('*').order('created_at')
+    if (error) throw new Error(error.message)
+    return data ?? []
+  },
+  saveMembers: (rows) => saveTable('members', rows),
 }

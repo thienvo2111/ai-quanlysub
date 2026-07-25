@@ -20,7 +20,7 @@ const TABS = [
   { key: 'members', label: 'Thành Viên' },
 ]
 
-const HAS_API = !!import.meta.env.VITE_APPS_SCRIPT_URL
+const HAS_API = !!(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY)
 
 function useLocalStorage(key, initialValue) {
   const [value, setValue] = useState(() => {
@@ -54,7 +54,7 @@ export default function App() {
         if (mems.length > 0) setMembersState(mems.map(m => ({ ...m, paymentAmount: Number(m.paymentAmount) })))
         setError(null)
       })
-      .catch(() => setError('Không thể kết nối Google Sheets. Đang dùng dữ liệu cục bộ.'))
+      .catch(e => setError('Không thể kết nối Supabase. Đang dùng dữ liệu cục bộ.'))
       .finally(() => setLoading(false))
   }, [authed])
 
@@ -140,7 +140,7 @@ export default function App() {
       {loading ? (
         <div className="flex flex-col items-center justify-center py-32 text-gray-400">
           <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mb-4"></div>
-          <p className="text-sm">Đang tải dữ liệu từ Google Sheets...</p>
+          <p className="text-sm">Đang tải dữ liệu từ Supabase...</p>
         </div>
       ) : (
         <main className="max-w-7xl mx-auto">
