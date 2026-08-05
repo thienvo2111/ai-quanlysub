@@ -165,7 +165,7 @@ export default function MemberManager({ packages, members, setMembers }) {
     const expiryDate = calcExpiryDate(form.startDate, dur)
     const targetPkg = form.packageId
     if (targetPkg) {
-      const count = members.filter(m => m.packageId === targetPkg && m.id !== editId).length
+      const count = members.filter(m => m.packageId === targetPkg && m.id !== editId && !m.archived).length
       if (count >= 5) {
         alert('Gói này đã đủ 5 thành viên. Không thể thêm thêm.')
         return
